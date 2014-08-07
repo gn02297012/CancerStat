@@ -19,6 +19,7 @@
 
         </div>
         <script src="http://d3js.org/d3.v3.min.js"></script>
+        <script src="codeTable.js"></script>
         <script>
             var ageCode = {"01": "新生兒﹝未滿四週﹞",
                 "02": "嬰兒(滿四週至未滿一歲)",
@@ -84,8 +85,8 @@
 
             var sexCode = {"1": "男", "2": "女"};
 
-            var keys = ['cause', 'sex', 'age_code', 'county'];
-            for (var i = 1; i <= 3; i++) {
+            var keys = ['','cause', 'sex', 'age_code', 'county', 'city'];
+            for (var i = 1; i <= 4; i++) {
                 var s = d3.select('#filter').append('select')
                         .attr('class', 'key');
                 s.selectAll('option')
@@ -122,7 +123,11 @@
 
             var partition = d3.layout.partition()
                     .children(function(d) {
-                        return d.values;
+                        if (d.values.length) {
+                            return d.values;
+                        } else {
+                            d['N'] = d.values;
+                        }
                     })
                     .value(function(d) {
                         return d['N'];
@@ -146,9 +151,16 @@
 
             d3.csv("cancer102.csv", function(error, root) {
                 root.forEach(function(d) {
+                    //進行代碼對照轉換
                     d['cause'] = cancerCode[d['cause']];
                     d['sex'] = sexCode[d['sex']];
                     d['age_code'] = ageCode[d['age_code']];
+                    if (d['year'] >= 100) {
+                        d['county'] = county100Code[d['county']];
+                        d['city'] = d['county'].substr(0, 3);
+                    } else {
+                        d['city'] = d['county'].substr(0, 2);
+                    }
                 });
                 data = root;
             });
@@ -157,7 +169,7 @@
                 var filterKeys = [];
                 d3.selectAll('select').forEach(function(d) {
                     return d.forEach(function(e) {
-                        if (filterKeys.indexOf(e.value) === -1) {
+                        if (e.value && (filterKeys.indexOf(e.value) === -1) ) {
                             filterKeys.push(e.value);
                         }
                     });
@@ -167,6 +179,11 @@
                     nest.key(function(d) {
                         return d[key];
                     });
+                });
+                nest.rollup(function(d) {
+                    return d3.sum(d, function(e) {
+                        return e['N'];
+                    })
                 });
                 var nested_data = nest.entries(data);
                 console.log(nested_data);
@@ -185,12 +202,12 @@
                         })
                         .on("click", click)
                         .on("mouseenter", function(d) {
-                            var str = d.key?d.key:'';
+                            var str = d.key ? d.key : '';
                             var e = d;
                             while (e = e.parent) {
                                 str = e.key + '=>' + str;
                             }
-                            console.log( str + "\t" + (d.value/nodes[0].value*100) + "%");
+                            console.log(str + "\t" + (d.value / nodes[0].value * 100) + "%");
                         });
 
                 function click(d) {
