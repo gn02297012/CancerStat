@@ -73,7 +73,7 @@
             }
 
             //要有哪些key可以選擇
-            var keys = ['', 'age_code', 'cause', 'city', 'sex', 'year'];
+            var keys = [['未選擇', ''], ['年齡', 'age_code'], ['癌症', 'cause'], ['縣市', 'city'], ['性別', 'sex'], ['年度別', 'year']];
             //預設要選取哪些key
             var defaultSelected = [2, 3, 0, 0];
 
@@ -85,10 +85,10 @@
                         .data(keys).enter()
                         .append('option')
                         .attr('value', function(d) {
-                            return d;
+                            return d[1];
                         })
                         .text(function(d) {
-                            return d;
+                            return d[0];
                         });
 
                 //設定預設選取的項目
