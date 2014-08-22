@@ -1,79 +1,225 @@
 <!DOCTYPE html>
 <html>
+    <head>
+        <title>癌症死因統計視覺化</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
 
-  <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="Cancerstat : 癌症死因統計視覺化">
+            path {
+                stroke: #fff;
+                fill-rule: evenodd;
+            }
 
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+        </style>
+    </head>
+    <body>
+        <button onclick="filterData()">Draw</button>
+        <div id="filter">
 
-    <title>Cancerstat</title>
-  </head>
+        </div>
+        <script src="http://d3js.org/d3.v3.min.js"></script>
+        <script>
+            var ageCode = {"01": "新生兒﹝未滿四週﹞",
+                "02": "嬰兒(滿四週至未滿一歲)",
+                "03": "一歲",
+                "04": "二歲",
+                "05": "三歲",
+                "06": "四歲",
+                "07": "5-9歲",
+                "08": "10-14歲",
+                "09": "15-19歲",
+                "10": "20-24歲",
+                "11": "25-29歲",
+                "12": "30-34歲",
+                "13": "35-39歲",
+                "14": "40-44歲",
+                "15": "45-49歲",
+                "16": "50-54歲",
+                "17": "55-59歲",
+                "18": "60-64歲",
+                "19": "65-69歲",
+                "20": "70-74歲",
+                "21": "75-79歲",
+                "22": "80-84歲",
+                "23": "85-89歲",
+                "24": "90-94歲",
+                "25": "95-99歲",
+                "26": "100歲以上",
+                "99": "不詳"};
 
-  <body>
+            var cancerCode = {"01": "口腔癌",
+                "02": "主唾液腺癌",
+                "03": "鼻咽癌",
+                "04": "食道癌",
+                "05": "胃癌",
+                "06": "小腸癌",
+                "07": "結腸、直腸和肛門癌",
+                "08": "肝和肝內膽管癌",
+                "09": "膽囊和其他膽道癌",
+                "10": "胰臟癌",
+                "11": "鼻腔、中耳和副鼻竇癌",
+                "12": "喉癌",
+                "13": "氣管、支氣管和肺癌",
+                "14": "胸腺癌",
+                "15": "心臟、縱隔和胸(肋)膜癌",
+                "16": "骨和關節軟骨癌",
+                "17": "黑色素瘤和其他皮膚癌",
+                "18": "間皮和軟組織癌",
+                "19": "女性乳房癌",
+                "20": "子宮頸及部位未明示子宮癌",
+                "21": "子宮體癌",
+                "22": "卵巢癌",
+                "23": "前列腺(攝護腺)癌",
+                "24": "男性生殖器官癌(攝護腺除外)",
+                "25": "腎臟癌",
+                "26": "膀胱癌",
+                "27": "腦癌",
+                "28": "腦膜及中樞神經系統其他部份癌(腦除外)",
+                "29": "甲狀腺癌",
+                "30": "何杰金氏症",
+                "31": "非何杰金氏淋巴瘤",
+                "32": "白血病",
+                "33": "其他癌症"};
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/gn02297012/CancerStat">View on GitHub</a>
+            var sexCode = {"1": "男", "2": "女"};
 
-          <h1 id="project_title">Cancerstat</h1>
-          <h2 id="project_tagline">癌症死因統計視覺化</h2>
+            var keys = ['cause', 'sex', 'age_code', 'county'];
+            for (var i = 1; i <= 3; i++) {
+                var s = d3.select('#filter').append('select')
+                        .attr('class', 'key');
+                s.selectAll('option')
+                        .data(keys).enter()
+                        .append('option')
+                        .attr('value', function(d) {
+                            return d;
+                        })
+                        .text(function(d) {
+                            return d;
+                        });
+                s.select('option:nth-child(' + i + ')')
+                        .property('selected', true);
+            }
+        </script>
+        <script>
+            var width = 800,
+                    height = 850,
+                    radius = Math.min(width, height) / 2;
 
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/gn02297012/CancerStat/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/gn02297012/CancerStat/tarball/master">Download this project as a tar.gz file</a>
-            </section>
-        </header>
-    </div>
+            var x = d3.scale.linear()
+                    .range([0, 2 * Math.PI]);
 
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-        <h3>
-<a name="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
+            var y = d3.scale.sqrt()
+                    .range([0, radius]);
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+            var color = d3.scale.category20c();
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
-</code></pre>
+            var svg = d3.select("body").append("svg")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .append("g")
+                    .attr("transform", "translate(" + width / 2 + "," + (height / 2 + 10) + ")");
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+            var partition = d3.layout.partition()
+                    .children(function(d) {
+                        return d.values;
+                    })
+                    .value(function(d) {
+                        return d['N'];
+                    });
 
-<h3>
-<a name="designer-templates" class="anchor" href="#designer-templates"><span class="octicon octicon-link"></span></a>Designer Templates</h3>
+            var arc = d3.svg.arc()
+                    .startAngle(function(d) {
+                        return Math.max(0, Math.min(2 * Math.PI, x(d.x)));
+                    })
+                    .endAngle(function(d) {
+                        return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx)));
+                    })
+                    .innerRadius(function(d) {
+                        return Math.max(0, y(d.y));
+                    })
+                    .outerRadius(function(d) {
+                        return Math.max(0, y(d.y + d.dy));
+                    });
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
+            var data = [];
 
-<h3>
-<a name="rather-drive-stick" class="anchor" href="#rather-drive-stick"><span class="octicon octicon-link"></span></a>Rather Drive Stick?</h3>
+            d3.csv("cancer102.csv", function(error, root) {
+                root.forEach(function(d) {
+                    d['cause'] = cancerCode[d['cause']];
+                    d['sex'] = sexCode[d['sex']];
+                    d['age_code'] = ageCode[d['age_code']];
+                });
+                data = root;
+            });
 
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+            var filterData = function() {
+                var filterKeys = [];
+                d3.selectAll('select').forEach(function(d) {
+                    return d.forEach(function(e) {
+                        if (filterKeys.indexOf(e.value) === -1) {
+                            filterKeys.push(e.value);
+                        }
+                    });
+                });
+                var nest = d3.nest();
+                filterKeys.forEach(function(key) {
+                    nest.key(function(d) {
+                        return d[key];
+                    });
+                });
+                var nested_data = nest.entries(data);
+                console.log(nested_data);
+                draw(nested_data);
+            };
 
-<h3>
-<a name="authors-and-contributors" class="anchor" href="#authors-and-contributors"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
+            var draw = function(data) {
+                var nodes = partition.nodes({key: 'all', values: data});
+                svg.selectAll("path").remove();
+                var path = svg.selectAll("path")
+                        .data(nodes)
+                        .enter().append("path")
+                        .attr("d", arc)
+                        .style("fill", function(d) {
+                            return color((d.children ? d : d.parent).key);
+                        })
+                        .on("click", click)
+                        .on("mouseenter", function(d) {
+                            var str = d.key?d.key:'';
+                            var e = d;
+                            while (e = e.parent) {
+                                str = e.key + '=>' + str;
+                            }
+                            console.log( str + "\t" + (d.value/nodes[0].value*100) + "%");
+                        });
 
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+                function click(d) {
+                    path.transition()
+                            .duration(750)
+                            .attrTween("d", arcTween(d));
+                }
+            }
 
-<h3>
-<a name="support-or-contact" class="anchor" href="#support-or-contact"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
+            d3.select(self.frameElement).style("height", height + "px");
 
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
-      </section>
-    </div>
+            // Interpolate the scales!
+            function arcTween(d) {
+                var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
+                        yd = d3.interpolate(y.domain(), [d.y, 1]),
+                        yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
+                return function(d, i) {
+                    return i
+                            ? function(t) {
+                                return arc(d);
+                            }
+                    : function(t) {
+                        x.domain(xd(t));
+                        y.domain(yd(t)).range(yr(t));
+                        return arc(d);
+                    };
+                };
+            }
 
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">Cancerstat maintained by <a href="https://github.com/gn02297012">gn02297012</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
-
-    
-
-  </body>
+        </script>
+    </body>
 </html>
