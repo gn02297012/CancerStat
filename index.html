@@ -4,29 +4,84 @@
         <title>癌症死因統計視覺化</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="js/d3.v3.min.js"></script>
+        <script src="codeTable.js"></script>
         <style>
-
             path {
                 stroke: #fff;
                 stroke-width: 0.5px;
                 fill-rule: evenodd;
             }
 
+            #rankTable {
+                float: right;
+                position: absolute;
+                right: 5%;
+            }
         </style>
     </head>
     <body>
-        <button onclick="filterData()">Draw</button>
-        <div id="filter">
-
+        <header>
+            <h2>癌症死因統計</h2>
+            <p>最多可選擇4個key，資料將會群組起來，並畫出圖。滑鼠移到圖上可以顯示關聯的資料。</p>
+        </header>
+        <div>
+            <span id="filter">
+            </span>
+            <button onclick="filterData()">Draw</button>
+            <div id="detail"> </div>
         </div>
-        <script src="http://d3js.org/d3.v3.min.js"></script>
-        <script src="codeTable.js"></script>
+        <div id="rankTable">
+            <table border="1">
+                <thead>
+                    <tr>
+                        <th>排名</th>
+                        <th>key</th>
+                        <th>人數</th>
+                        <th>百分比</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                </tbody>
+            </table>
+        </div>
         <script>
-            var keys = ['', 'cause', 'age_code', 'city',  'sex', 'year'];
-            for (var i = 1; i <= 4; i++) {
-                var s = d3.select('#filter').append('select')
+            //所有載入的資料都放這裡
+            var data = [];
+            //將代碼轉換對應的文字
+            var codeParse = function(d) {
+                d['cause'] = cancerCode[d['cause']];
+                d['sex'] = sexCode[d['sex']];
+                d['age_code'] = ageCode[d['age_code']];
+                if (d['year'] >= 100) {
+                    d['county'] = county100Code[d['county']];
+                    d['city'] = d['county'].substr(0, 3);
+                } else {
+                    d['city'] = d['county'].substr(0, 2);
+                }
+            };
+            //載入資料
+            for (var i = 100; i <= 102; i++) {
+                d3.csv('cancer' + i + '.csv', function(error, csv) {
+                    //將原始資料中的代碼轉換成文字，再存起來
+                    csv.forEach(function(d) {
+                        codeParse(d);
+                    });
+                    data = data.concat(csv);
+                });
+            }
+
+            //要有哪些key可以選擇
+            var keys = ['', 'age_code', 'cause', 'city', 'sex', 'year'];
+            //預設要選取哪些key
+            var defaultSelected = [2, 3, 0, 0];
+
+            //產生出select
+            for (var i = 0; i < defaultSelected.length; i++) {
+                var slt = d3.select('#filter').append('select')
                         .attr('class', 'key');
-                s.selectAll('option')
+                slt.selectAll('option')
                         .data(keys).enter()
                         .append('option')
                         .attr('value', function(d) {
@@ -35,7 +90,9 @@
                         .text(function(d) {
                             return d;
                         });
-                s.select('option:nth-child(' + (i) + ')')
+
+                //設定預設選取的項目
+                slt.select('option:nth-child(' + (defaultSelected[i]) + ')')
                         .property('selected', true);
             }
         </script>
@@ -43,21 +100,16 @@
             var width = 800,
                     height = 850,
                     radius = Math.min(width, height) / 2;
-
             var x = d3.scale.linear()
                     .range([0, 2 * Math.PI]);
-
             var y = d3.scale.sqrt()
                     .range([0, radius]);
-
             var color = d3.scale.category20c();
-
             var svg = d3.select("body").append("svg")
                     .attr("width", width)
                     .attr("height", height)
                     .append("g")
                     .attr("transform", "translate(" + width / 2 + "," + (height / 2 + 10) + ")");
-
             var partition = d3.layout.partition()
                     .children(function(d) {
                         if (d.values.length) {
@@ -69,7 +121,6 @@
                     .value(function(d) {
                         return d['N'];
                     });
-
             var arc = d3.svg.arc()
                     .startAngle(function(d) {
                         return Math.max(0, Math.min(2 * Math.PI, x(d.x)));
@@ -83,25 +134,6 @@
                     .outerRadius(function(d) {
                         return Math.max(0, y(d.y + d.dy));
                     });
-
-            var data = [];
-
-            d3.csv("cancer102.csv", function(error, root) {
-                root.forEach(function(d) {
-                    //進行代碼對照轉換
-                    d['cause'] = cancerCode[d['cause']];
-                    d['sex'] = sexCode[d['sex']];
-                    d['age_code'] = ageCode[d['age_code']];
-                    if (d['year'] >= 100) {
-                        d['county'] = county100Code[d['county']];
-                        d['city'] = d['county'].substr(0, 3);
-                    } else {
-                        d['city'] = d['county'].substr(0, 2);
-                    }
-                });
-                data = root;
-            });
-
             var filterData = function() {
                 var filterKeys = [];
                 d3.selectAll('select').forEach(function(d) {
@@ -127,6 +159,10 @@
                 draw(nested_data);
             };
 
+            var round4 = function(n) {
+                return Math.round(n * 1000) / 1000;
+            }
+
             var draw = function(data) {
                 var nodes = partition.nodes({key: 'all', values: data});
                 svg.selectAll("path").remove();
@@ -135,17 +171,40 @@
                         .enter().append("path")
                         .attr("d", arc)
                         .style("fill", function(d) {
+                            return color(d.key);
                             return color((d.children ? d : d.parent).key);
                         })
                         .on("click", click)
                         .on("mouseenter", function(d) {
+                            //產生出階層關係的字串
                             var str = d.key ? d.key : '';
                             var e = d;
                             while (e = e.parent) {
                                 str = e.key + '=>' + str;
                             }
-                            console.log(str + "\t" + (d.value / nodes[0].value * 100) + "%");
+                            d3.select('#detail').text(str);
+
+                            //將children的資料顯示在表格上
+                            if (d.children) {
+                                table(d.children);
+                            }
                         });
+
+                function table(d) {
+                    var tbody = d3.select('#rankTable tbody');
+                    tbody.selectAll('tr').remove();
+                    var tr = tbody.selectAll('tr')
+                            .data(d).enter()
+                            .append('tr');
+                    tr.selectAll('td')
+                            .data(function(d, i) {
+                                return [i + 1, d.key, d.value, round4(d.value / d.parent.value * 100)];
+                            }).enter()
+                            .append('td')
+                            .text(function(d) {
+                                return d;
+                            });
+                }
 
                 function click(d) {
                     path.transition()
@@ -154,8 +213,7 @@
                 }
             }
 
-            d3.select(self.frameElement).style("height", height + "px");
-
+            //d3.select(self.frameElement).style("height", height + "px");
             // Interpolate the scales!
             function arcTween(d) {
                 var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
