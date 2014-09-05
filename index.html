@@ -4,7 +4,9 @@
         <title>癌症死因統計視覺化</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="css/c3.css" rel="stylesheet" type="text/css">
         <script src="js/d3.v3.min.js"></script>
+        <script src="js/c3.min.js"></script>
         <script src="codeTable.js"></script>
         <style>
             path {
@@ -46,20 +48,25 @@
                 </tbody>
             </table>
         </div>
+        <div id="chart"></div>
         <script>
             //所有載入的資料都放這裡
             var data = [];
+            //各層資料出現過的key
+            var keys = [];
             //將代碼轉換對應的文字
             var codeParse = function(d) {
-                d['cause'] = cancerCode[d['cause']];
-                d['sex'] = sexCode[d['sex']];
-                d['age_code'] = ageCode[d['age_code']];
-                if (d['year'] >= 100) {
-                    d['county'] = county100Code[d['county']];
-                    d['city'] = d['county'].substr(0, 3);
-                } else {
-                    d['city'] = d['county'].substr(0, 2);
-                }
+//                d['cause'] = cancerCode[d['cause']];
+//                d['sex'] = sexCode[d['sex']];
+//                d['_age_code'] = d['age_code'] * 1;
+//                d['age_code'] = ageCode[d['age_code']];
+//                if (d['year'] >= 100) {
+//                    d['county'] = county100Code[d['county']];
+//                    d['city'] = d['county'].substr(0, 3);
+//                } else {
+//                    d['city'] = d['county'].substr(0, 2);
+//                }
+                d['city'] = d['county'].substr(0, 2);
             };
             //載入資料
             for (var i = 100; i <= 102; i++) {
@@ -75,7 +82,7 @@
             //要有哪些key可以選擇
             var keys = [['未選擇', ''], ['年齡', 'age_code'], ['癌症', 'cause'], ['縣市', 'city'], ['性別', 'sex'], ['年度別', 'year']];
             //預設要選取哪些key
-            var defaultSelected = [2, 3, 0, 0];
+            var defaultSelected = [3, 6, 0, 0];
 
             //產生出select
             for (var i = 0; i < defaultSelected.length; i++) {
@@ -135,6 +142,7 @@
                         return Math.max(0, y(d.y + d.dy));
                     });
             var filterData = function() {
+                //找出要用那些key來處理資料
                 var filterKeys = [];
                 d3.selectAll('select').forEach(function(d) {
                     return d.forEach(function(e) {
@@ -143,8 +151,16 @@
                         }
                     });
                 });
+                //初始化keys
+                keys = [];
+                //將資料分群
                 var nest = d3.nest();
                 filterKeys.forEach(function(key) {
+                    keys.push(d3.nest().key(function(d) {
+                        return d[key];
+                    }).entries(data).map(function(d) {
+                        return d.key;
+                    }));
                     nest.key(function(d) {
                         return d[key];
                     });
@@ -157,6 +173,7 @@
                 var nested_data = nest.entries(data);
                 console.log(nested_data);
                 draw(nested_data);
+                return nested_data;
             };
 
             var round4 = function(n) {
@@ -164,6 +181,25 @@
             }
 
             var draw = function(data) {
+                //畫line chart
+                var x = ['x'].concat(data[0].values.map(function(d) {
+                    return d.key;
+                }));
+                var col = data.map(function(d) {
+                    return [d.key].concat(d.values.map(function(e) {
+                        return e.value ? e.value : e.values;
+                    }));
+                });
+                col.splice(0, 0, x);
+                console.log(col);
+                var chart = c3.generate({
+                    bindto: '#chart',
+                    data: {
+                    x: 'x',
+                        columns: col
+                    }
+                });
+                //畫partition圖
                 var nodes = partition.nodes({key: 'all', values: data});
                 svg.selectAll("path").remove();
                 var path = svg.selectAll("path")
